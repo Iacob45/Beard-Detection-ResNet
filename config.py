@@ -29,11 +29,13 @@ OUTPUTS_DIR = BASE_DIR / "outputs"
 
 # Classes config
 CLASS_MAP = {
-    0: "No_Facial_Hair",
-    1: "Full_Beard",
-    2: "Goatee",
-    3: "Mustache",
+    0: "Full_Beard",
+    1: "Goatee",
+    2: "Mustache",
+    3: "No_Facial_Hair"
 }
+
+NUM_CLASSES = len(CLASS_MAP)
 
 
 # Dataset config
