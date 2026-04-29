@@ -16,19 +16,16 @@ BASE_DIR = Path(__file__).resolve().parent
 RES_DIR = BASE_DIR / "resources"
 
 DATA_DIR = BASE_DIR / "data"
-CELEBA_DIR = DATA_DIR / "celeba"
-STUDENTS_DIR = DATA_DIR / "students"
 
-CELEBA_TRAIN_DIR = CELEBA_DIR / "train"
-CELEBA_VAL_DIR = CELEBA_DIR / "val"
-CELEBA_TEST_DIR = CELEBA_DIR / "test"
-
-STUDENTS_TRAIN_DIR = STUDENTS_DIR / "train"
-STUDENTS_VAL_DIR = STUDENTS_DIR / "val"
-STUDENTS_TEST_DIR = STUDENTS_DIR / "test"
+TRAIN_DIR = DATA_DIR / "train"
+VAL_DIR = DATA_DIR / "val"
+TEST_DIR = DATA_DIR / "test"
 
 MODELS_DIR = BASE_DIR / "models"
+MODEL_PATH = MODELS_DIR / "beard_classifier.pt"
+
 OUTPUTS_DIR = BASE_DIR / "outputs"
+
 
 # Classes config
 CLASS_MAP = {
