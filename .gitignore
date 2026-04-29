@@ -1,3 +1,8 @@
+# Manually added
+.idea
+resources/
+data/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
