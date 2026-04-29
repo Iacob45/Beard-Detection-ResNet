@@ -43,3 +43,14 @@ class DatasetMode(str, Enum):
     CELEBA = "celeba"
     STUDENTS = "students"
     BOTH = "both"
+
+
+# Model config
+IMAGE_HEIGHT = 218
+IMAGE_WIDTH = 178
+
+IMAGE_SIZE = (IMAGE_HEIGHT, IMAGE_WIDTH)
+
+BATCH_SIZE = 32
+EPOCHS = 10
+LEARNING_RATE = 1e-4
