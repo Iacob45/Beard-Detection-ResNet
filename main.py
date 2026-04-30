@@ -13,8 +13,8 @@ def main(mode: AppModes = AppModes.TEST):
     elif mode == AppModes.PREDICT:
         predict()
     elif mode == AppModes.DATASET_PREPARATION:
-        dataset_preparation(dataset_mode=DatasetMode.CELEBA)
+        dataset_preparation(dataset_mode=DatasetMode.STUDENTS)
 
 
 if __name__ == "__main__":
-    main(mode=AppModes.DATASET_PREPARATION)
+    main(mode=AppModes.TRAIN)

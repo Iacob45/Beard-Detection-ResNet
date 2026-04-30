@@ -46,11 +46,13 @@ class DatasetMode(str, Enum):
 
 
 # Model config
+DEVICE = "cuda"
+
 IMAGE_HEIGHT = 218
 IMAGE_WIDTH = 178
 
 IMAGE_SIZE = (IMAGE_HEIGHT, IMAGE_WIDTH)
 
 BATCH_SIZE = 32
-EPOCHS = 10
+EPOCHS = 100
 LEARNING_RATE = 1e-4
