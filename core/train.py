@@ -1,6 +1,11 @@
+from collections import Counter
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.utils import compute_class_weight
 
 from config import DEVICE, EPOCHS, LEARNING_RATE, MODEL_PATH, MODELS_DIR
 from core.dataset import get_dataloaders
@@ -45,6 +50,9 @@ def validate(model, val_loader, criterion, device):
     correct_predictions = 0
     total_samples = 0
 
+    all_labels = []
+    all_predictions = []
+
     with torch.no_grad():
         for images, labels in val_loader:
             images = images.to(device)
@@ -59,10 +67,13 @@ def validate(model, val_loader, criterion, device):
             correct_predictions += (predicted == labels).sum().item()
             total_samples += labels.size(0)
 
+            all_labels.extend(labels.cpu().tolist())
+            all_predictions.extend(predicted.cpu().tolist())
+
     val_loss = running_loss / total_samples
     val_accuracy = correct_predictions / total_samples
 
-    return val_loss, val_accuracy
+    return val_loss, val_accuracy, all_labels, all_predictions
 
 
 def train(resume_training: bool = False):
@@ -81,7 +92,21 @@ def train(resume_training: bool = False):
     elif resume_training:
         print(f"No saved model found at {MODEL_PATH}. Starting new training.")
 
-    criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+    train_labels = [label for _, label in train_loader.dataset.samples]
+
+    class_weights = compute_class_weight(
+        class_weight="balanced",
+        classes=np.unique(train_labels),
+        y=train_labels,
+    )
+
+    class_weights = torch.tensor(class_weights, dtype=torch.float).to(device)
+
+    criterion = nn.CrossEntropyLoss(
+        weight=class_weights,
+        label_smoothing=0.1,
+    )
+
     optimizer = optim.Adam(
         filter(lambda p: p.requires_grad, model.parameters()),
         lr=LEARNING_RATE,
@@ -109,7 +134,7 @@ def train(resume_training: bool = False):
             device=device,
         )
 
-        val_loss, val_accuracy = validate(
+        val_loss, val_accuracy, all_labels, all_predictions = validate(
             model=model,
             val_loader=val_loader,
             criterion=criterion,
@@ -132,6 +157,24 @@ def train(resume_training: bool = False):
             best_val_accuracy = val_accuracy
             torch.save(model.state_dict(), MODEL_PATH)
             print(f"Best model saved to: {MODEL_PATH}")
+
+            print("\nConfusion matrix:")
+            print(confusion_matrix(all_labels, all_predictions))
+
+            print("\nClassification report:")
+            print(classification_report(
+                all_labels,
+                all_predictions,
+                target_names=classes,
+                zero_division=0,
+            ))
+
+            print("\nMapping:")
+            print(val_loader.dataset.class_to_idx)
+            print(classes)
+
+            print("True labels:", Counter(all_labels))
+            print("Pred labels:", Counter(all_predictions))
 
     print("Training completed.")
     print(f"Best validation accuracy: {best_val_accuracy:.4f}")
