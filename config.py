@@ -57,5 +57,17 @@ IMAGE_WIDTH = 178
 IMAGE_SIZE = (IMAGE_HEIGHT, IMAGE_WIDTH)
 
 BATCH_SIZE = 32
-EPOCHS = 100
+EPOCHS = 20
 LEARNING_RATE = 1e-4
+
+
+# Crop mode config
+class CropMode(str, Enum):
+    NONE = "none"
+    FACE = "face"
+    LOWER_FACE = "lower_face"
+
+CROP_MODE = CropMode.FACE
+
+# Face detection config
+DLIB_LANDMARKS_PATH = MODELS_DIR / "shape_predictor_68_face_landmarks.dat"
