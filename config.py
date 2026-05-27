@@ -26,6 +26,9 @@ MODEL_PATH = MODELS_DIR / "beard_classifier.pt"
 
 OUTPUTS_DIR = BASE_DIR / "outputs"
 
+PREDICT_PATH = DATA_DIR / "predict"
+PREDICT_IMAGE_PATH = PREDICT_PATH / "test.JPG"
+
 
 # Classes config
 CLASS_MAP = {
