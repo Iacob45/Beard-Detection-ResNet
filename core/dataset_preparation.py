@@ -13,13 +13,10 @@ DATASETS = {
         "name": "celeba",
         "images_dir": RES_DIR / "images_celeba",
         "excel_path": RES_DIR / "database_celeba.xlsx"
-    },
-    DatasetMode.STUDENTS: {
-        "name": "students",
-        "images_dir": RES_DIR / "images_students",
-        "excel_path": RES_DIR / "database_students.xlsx"
     }
 }
+
+STUDENTS_MANUAL_DIR = RES_DIR / "data_students_manual"
 
 TRAIN_SIZE = 0.70
 VAL_SIZE = 0.15
@@ -30,18 +27,16 @@ SEED = 42
 FACE_DETECTOR = dlib.get_frontal_face_detector()
 LANDMARK_PREDICTOR = dlib.shape_predictor(str(DLIB_LANDMARKS_PATH))
 
+
 def get_selected_datasets(dataset_mode: DatasetMode = DatasetMode.CELEBA) -> list[dict]:
     if dataset_mode == DatasetMode.CELEBA:
         return [DATASETS[DatasetMode.CELEBA]]
 
     if dataset_mode == DatasetMode.STUDENTS:
-        return [DATASETS[DatasetMode.STUDENTS]]
+        return []
 
     if dataset_mode == DatasetMode.BOTH:
-        return [
-            DATASETS[DatasetMode.CELEBA],
-            DATASETS[DatasetMode.STUDENTS]
-        ]
+        return [DATASETS[DatasetMode.CELEBA]]
 
     raise ValueError(f"Invalid dataset mode: {dataset_mode}")
 
@@ -65,12 +60,76 @@ def load_dataset(dataset_config: dict) -> pd.DataFrame:
 def load_selected_datasets(dataset_mode: DatasetMode) -> pd.DataFrame:
     selected_datasets = get_selected_datasets(dataset_mode)
 
+    if not selected_datasets:
+        return pd.DataFrame(columns=["image_name", "class", "source", "image_path"])
+
     dataframes = [
         load_dataset(dataset_config)
         for dataset_config in selected_datasets
     ]
 
     return pd.concat(dataframes, ignore_index=True)
+
+
+def load_students_manual_dataset() -> pd.DataFrame:
+    rows = []
+    class_to_index = {
+        class_name: class_index
+        for class_index, class_name in CLASS_MAP.items()
+    }
+
+    for split_name in ["train", "val", "test"]:
+        split_dir = STUDENTS_MANUAL_DIR / split_name
+
+        if not split_dir.exists():
+            print(f"Missing students manual split directory: {split_dir}")
+            continue
+
+        for class_dir in split_dir.iterdir():
+            if not class_dir.is_dir():
+                continue
+
+            class_name = class_dir.name
+
+            if class_name not in class_to_index:
+                print(f"Unknown class folder in students manual dataset: {class_dir}")
+                continue
+
+            for image_path in class_dir.glob("*"):
+                if image_path.suffix.lower() not in [".jpg", ".jpeg", ".png"]:
+                    continue
+
+                rows.append({
+                    "image_name": image_path.name,
+                    "class": class_to_index[class_name],
+                    "source": "students",
+                    "image_path": image_path,
+                    "split": split_name
+                })
+
+    return pd.DataFrame(rows)
+
+
+def split_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    df = df[df["class"].isin(CLASS_MAP.keys())]
+
+    train_df, temp_df = train_test_split(
+        df,
+        train_size=TRAIN_SIZE,
+        stratify=df["class"],
+        random_state=SEED
+    )
+
+    relative_val_size = VAL_SIZE / (VAL_SIZE + TEST_SIZE)
+
+    val_df, test_df = train_test_split(
+        temp_df,
+        train_size=relative_val_size,
+        stratify=temp_df["class"],
+        random_state=SEED
+    )
+
+    return train_df, val_df, test_df
 
 
 def clear_data_dir() -> None:
@@ -154,7 +213,7 @@ def crop_lower_face(image, face_rect):
         for i in range(68)
     ]
 
-    nose_tip_x, nose_tip_y = points[30]
+    _, nose_tip_y = points[30]
 
     x = face_rect.left()
     y = face_rect.top()
@@ -164,7 +223,6 @@ def crop_lower_face(image, face_rect):
     padding_x = int(w * 0.20)
     padding_bottom = int(h * 0.15)
 
-    # Pornim puțin deasupra nasului ca să includem mustața complet.
     y_start = nose_tip_y - int(h * 0.10)
 
     x1 = clamp(x - padding_x, 0, image_width)
@@ -234,6 +292,13 @@ def copy_images(df: pd.DataFrame, split_name: str, crop_mode: CropMode) -> None:
         save_processed_image(source_path, destination_path, crop_mode)
 
 
+def get_students_split_df(students_df: pd.DataFrame, split_name: str) -> pd.DataFrame:
+    if students_df.empty:
+        return students_df
+
+    return students_df[students_df["split"] == split_name].copy()
+
+
 def print_split_stats(train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.DataFrame) -> None:
     print("\nDataset split completed.")
     print(f"Train:       {len(train_df)} images")
@@ -250,27 +315,34 @@ def print_split_stats(train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.
 
 
 def dataset_preparation(dataset_mode: DatasetMode = DatasetMode.BOTH, crop_mode: CropMode = CROP_MODE) -> None:
-    df = load_selected_datasets(dataset_mode)
-
-    df = df[df["class"].isin(CLASS_MAP.keys())]
-
-    train_df, temp_df = train_test_split(
-        df,
-        train_size=TRAIN_SIZE,
-        stratify=df["class"],
-        random_state=SEED
-    )
-
-    relative_val_size = VAL_SIZE / (VAL_SIZE + TEST_SIZE)
-
-    val_df, test_df = train_test_split(
-        temp_df,
-        train_size=relative_val_size,
-        stratify=temp_df["class"],
-        random_state=SEED
-    )
-
     clear_data_dir()
+
+    train_parts = []
+    val_parts = []
+    test_parts = []
+
+    if dataset_mode in [DatasetMode.CELEBA, DatasetMode.BOTH]:
+        celeba_df = load_selected_datasets(DatasetMode.CELEBA)
+        celeba_train_df, celeba_val_df, celeba_test_df = split_dataframe(celeba_df)
+
+        train_parts.append(celeba_train_df)
+        val_parts.append(celeba_val_df)
+        test_parts.append(celeba_test_df)
+
+    if dataset_mode in [DatasetMode.STUDENTS, DatasetMode.BOTH]:
+        students_df = load_students_manual_dataset()
+        students_df = students_df[students_df["class"].isin(CLASS_MAP.keys())]
+
+        train_parts.append(get_students_split_df(students_df, "train"))
+        val_parts.append(get_students_split_df(students_df, "val"))
+        test_parts.append(get_students_split_df(students_df, "test"))
+
+    if not train_parts and not val_parts and not test_parts:
+        raise ValueError(f"No data was loaded for dataset mode: {dataset_mode}")
+
+    train_df = pd.concat(train_parts, ignore_index=True) if train_parts else pd.DataFrame()
+    val_df = pd.concat(val_parts, ignore_index=True) if val_parts else pd.DataFrame()
+    test_df = pd.concat(test_parts, ignore_index=True) if test_parts else pd.DataFrame()
 
     copy_images(train_df, "train", crop_mode)
     copy_images(val_df, "val", crop_mode)
